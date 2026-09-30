@@ -1,0 +1,52 @@
+name: Python PR Tests
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run tests with coverage
+        run: |
+          pytest --cov=. --cov-report=term-missing --cov-report=xml --cov-fail-under=80
+
+      - name: Create coverage report
+        if: always()
+        run: |
+          python - <<'PY'
+          import xml.etree.ElementTree as ET
+
+          root = ET.parse("coverage.xml").getroot()
+          coverage = float(root.attrib["line-rate"]) * 100
+
+          with open("coverage_report.md", "w") as f:
+              f.write("## 📊 Test Coverage Report\n\n")
+              f.write(f"**Coverage: {coverage:.2f}%**\n\n")
+              f.write("**Required:** 80%\n")
+          PY
+
+      - name: Post coverage report to PR
+        if: always()
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          header: python-coverage
+          path: coverage_report.md
